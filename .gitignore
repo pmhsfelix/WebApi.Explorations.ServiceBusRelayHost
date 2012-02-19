@@ -16,5 +16,5 @@ build/
 [Rr]elease/
 packages/
 _[Rr]e[Ss]harper.*/
-.gpState
+*.gpState
 SecretCredentials.cs
