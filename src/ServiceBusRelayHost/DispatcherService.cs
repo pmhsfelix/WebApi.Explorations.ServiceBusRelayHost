@@ -18,10 +18,12 @@ namespace WebApi.Explorations.ServiceBusIntegration
     internal class DispatcherService
     {
         private readonly HttpServer _server;
+        private readonly HttpServiceBusConfiguration _config;
 
-        public DispatcherService(HttpServer server)
+        public DispatcherService(HttpServer server, HttpServiceBusConfiguration config)
         {
             _server = server;
+            _config = config;
         }
 
         private static readonly HashSet<string> _httpContentHeaders = new HashSet<string>
@@ -38,13 +40,14 @@ namespace WebApi.Explorations.ServiceBusIntegration
                                                                      "Last-Modified"
                                                                  };
 
+        
 
         [WebGet(UriTemplate = "*")]
         [OperationContract(AsyncPattern = true)]
         public IAsyncResult BeginGet(AsyncCallback callback, object state)
         {
             var context = WebOperationContext.Current;
-            return DispatchToHttpServer(context.IncomingRequest, null, context.OutgoingResponse, callback, state);
+            return DispatchToHttpServer(context.IncomingRequest, null, context.OutgoingResponse, _config.BufferRequestContent, callback, state);
         }
 
         public Message EndGet(IAsyncResult ar)
@@ -59,7 +62,7 @@ namespace WebApi.Explorations.ServiceBusIntegration
         public IAsyncResult BeginInvoke(Stream s, AsyncCallback callback, object state)
         {
             var context = WebOperationContext.Current;
-            return DispatchToHttpServer(context.IncomingRequest, s, context.OutgoingResponse, callback, state);
+            return DispatchToHttpServer(context.IncomingRequest, s, context.OutgoingResponse, _config.BufferRequestContent, callback, state);
         }
 
         public Message EndInvoke(IAsyncResult ar)
@@ -73,10 +76,11 @@ namespace WebApi.Explorations.ServiceBusIntegration
             IncomingWebRequestContext incomingRequest, 
             Stream body,
             OutgoingWebResponseContext outgoingResponse, 
+            bool bufferBody,
             AsyncCallback callback, 
             object state)
         {
-            var request = MakeHttpRequestMessageFrom(incomingRequest, body);
+            var request = MakeHttpRequestMessageFrom(incomingRequest, body, bufferBody);
             var tcs = new TaskCompletionSource<Stream>(state);
             _server.SubmitRequestAsync(request, new CancellationToken())
                 .ContinueWith(t =>
@@ -108,7 +112,7 @@ namespace WebApi.Explorations.ServiceBusIntegration
             return tcs.Task;
         }
         
-        private static HttpRequestMessage MakeHttpRequestMessageFrom(IncomingWebRequestContext oreq, Stream body)
+        private static HttpRequestMessage MakeHttpRequestMessageFrom(IncomingWebRequestContext oreq, Stream body, bool bufferBody)
         {
             var nreq = new HttpRequestMessage(new HttpMethod(oreq.Method), oreq.UriTemplateMatch.RequestUri);
             foreach (var name in oreq.Headers.AllKeys.Where(name => !_httpContentHeaders.Contains(name)))
@@ -117,7 +121,16 @@ namespace WebApi.Explorations.ServiceBusIntegration
             }
             if (body != null)
             {
-                nreq.Content = new StreamContent(body);
+                if (bufferBody)
+                {
+                    var ms = new MemoryStream();
+                    body.CopyTo(ms);
+                    ms.Seek(0, SeekOrigin.Begin);
+                    nreq.Content = new StreamContent(ms);   
+                }else{
+                    nreq.Content = new StreamContent(body);
+                }
+
                 foreach (var name in oreq.Headers.AllKeys.Where(name => _httpContentHeaders.Contains(name)))
                 {
                     nreq.Content.Headers.AddWithoutValidation(name, oreq.Headers.Get(name).Split(',').Select(s => s.Trim()));

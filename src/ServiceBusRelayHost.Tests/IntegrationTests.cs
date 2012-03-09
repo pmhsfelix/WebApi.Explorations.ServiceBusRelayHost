@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Json;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -159,6 +160,36 @@ namespace WebApi.Explorations.ServiceBusIntegration.Tests
         }
 
         [Test]
+        public void When_POST_request_content_is_preserved()
+        {
+            var client = new HttpClient();
+            var request = new HttpRequestMessage(HttpMethod.Post, BaseAddress + "Test");
+            var values = new Dictionary<string, string>()
+                             {
+                                 {"key1","value1"},
+                                 {"key2","value2"},
+                                 {"key3","value3"},
+                                 {"key4","value4"},
+
+                             };
+            request.Content = new FormUrlEncodedContent(values);
+
+            var rt = client.SendAsync(request);
+            TestController.OnPost(req =>
+            {
+                var cont = req.Content.ReadAsAsync<JsonValue>().Result;
+                foreach (var p in values)
+                {
+                    Assert.AreEqual(p.Value, cont[p.Key].ReadAs<string>());
+                }
+                return new HttpResponseMessage();
+            }
+            );
+            var response = rt.Result;
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Test]
         public void When_GET_response_headers_are_preserved()
         {
             const string contentString = "eureka";
@@ -224,7 +255,6 @@ namespace WebApi.Explorations.ServiceBusIntegration.Tests
             TestController.OnGet( req => new HttpResponseMessage(HttpStatusCode.NoContent));
             var resp = t.Result;
             Assert.AreEqual(HttpStatusCode.NoContent, resp.StatusCode);
-            // Assert.Null(resp.Content); fails this
         }
 
         private HttpServiceBusServer _server;
@@ -235,7 +265,8 @@ namespace WebApi.Explorations.ServiceBusIntegration.Tests
             var config = new HttpServiceBusConfiguration(BaseAddress)
             {
                 IssuerName = "owner",
-                IssuerSecret = Secret
+                IssuerSecret = Secret,
+                BufferRequestContent = true,
             };
             config.Routes.MapHttpRoute("default", "{controller}/{id}", new { id = RouteParameter.Optional });
             _server = new HttpServiceBusServer(config);

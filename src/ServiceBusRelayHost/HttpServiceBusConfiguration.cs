@@ -16,6 +16,8 @@ namespace WebApi.Explorations.ServiceBusIntegration
         public string IssuerSecret { get; set; }
         public string Address { get { return _address; } }
 
+        public bool BufferRequestContent { get; set; }
+        
         public WebHttpRelayBinding GetBinding()
         {
             return new WebHttpRelayBinding(EndToEndWebHttpSecurityMode.None, RelayClientAuthenticationType.None);

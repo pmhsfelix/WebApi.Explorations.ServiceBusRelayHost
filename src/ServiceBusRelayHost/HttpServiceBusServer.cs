@@ -18,7 +18,7 @@ namespace WebApi.Explorations.ServiceBusIntegration
 
         public Task OpenAsync()
         {
-            _host = new WebServiceHost(new DispatcherService(_innerServer));
+            _host = new WebServiceHost(new DispatcherService(_innerServer, _config));
             var ep = _host.AddServiceEndpoint(typeof(DispatcherService), _config.GetBinding(), _config.Address);
             ep.Behaviors.Add(_config.GetTransportBehavior());
             return Task.Factory.FromAsync(
