@@ -17,12 +17,13 @@ namespace WebApi.Explorations.ServiceBusIntegration
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single, ConcurrencyMode = ConcurrencyMode.Multiple)]
     internal class DispatcherService
     {
-        private readonly HttpServer _server;
+        //private readonly HttpServer _server;
+        private readonly HttpMessageInvoker _serverInvoker;
         private readonly HttpServiceBusConfiguration _config;
 
         public DispatcherService(HttpServer server, HttpServiceBusConfiguration config)
         {
-            _server = server;
+            _serverInvoker = new HttpMessageInvoker(server, false);
             _config = config;
         }
 
@@ -82,7 +83,7 @@ namespace WebApi.Explorations.ServiceBusIntegration
         {
             var request = MakeHttpRequestMessageFrom(incomingRequest, body, bufferBody);
             var tcs = new TaskCompletionSource<Stream>(state);
-            _server.SubmitRequestAsync(request, new CancellationToken())
+            _serverInvoker.SendAsync(request, new CancellationToken())
                 .ContinueWith(t =>
                 {
                     var response = t.Result;
@@ -117,7 +118,8 @@ namespace WebApi.Explorations.ServiceBusIntegration
             var nreq = new HttpRequestMessage(new HttpMethod(oreq.Method), oreq.UriTemplateMatch.RequestUri);
             foreach (var name in oreq.Headers.AllKeys.Where(name => !_httpContentHeaders.Contains(name)))
             {
-                nreq.Headers.AddWithoutValidation (name, oreq.Headers.Get(name).Split(',').Select(s => s.Trim()));
+                //nreq.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name).Split(',').Select(s => s.Trim()));
+                nreq.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name));
             }
             if (body != null)
             {
@@ -133,7 +135,8 @@ namespace WebApi.Explorations.ServiceBusIntegration
 
                 foreach (var name in oreq.Headers.AllKeys.Where(name => _httpContentHeaders.Contains(name)))
                 {
-                    nreq.Content.Headers.AddWithoutValidation(name, oreq.Headers.Get(name).Split(',').Select(s => s.Trim()));
+                    //nreq.Content.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name).Split(',').Select(s => s.Trim()));
+                    nreq.Content.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name));
                 }
             }
             return nreq;

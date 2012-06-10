@@ -1,19 +1,18 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Json;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 using System.Web.Http;
 using NUnit.Framework;
+using Newtonsoft.Json.Linq;
 using WebApi.Explorations.ServiceBusIntegration;
 using WebApi.Explorations.ServiceBusRelayHost.Tests;
 
-namespace WebApi.Explorations.ServiceBusIntegration.Tests
+namespace ServiceBusRelayHost.Tests
 {
     public class RequestExecutor<TInput,TOutput>
     {
@@ -115,8 +114,8 @@ namespace WebApi.Explorations.ServiceBusIntegration.Tests
                                          }
                                          var customHeader = req.Headers.First(kvp => kvp.Key == "X-CustomHeader");
                                          Assert.NotNull(customHeader);
-                                         Assert.True(customHeader.Value.Contains("value1"));
-                                         Assert.True(customHeader.Value.Contains("value2"));
+                                         Assert.True(customHeader.Value.Any(s => s.Contains("value1")));
+                                         Assert.True(customHeader.Value.Any(s => s.Contains("value2")));
                                          return new HttpResponseMessage();
                                      });
             var response = rt.Result;
@@ -148,8 +147,8 @@ namespace WebApi.Explorations.ServiceBusIntegration.Tests
                 }
                 var customHeader = req.Headers.First(kvp => kvp.Key == "X-CustomHeader");
                 Assert.NotNull(customHeader);
-                Assert.True(customHeader.Value.Contains("value1"));
-                Assert.True(customHeader.Value.Contains("value2"));
+                Assert.True(customHeader.Value.Any(s=>s.Contains("value1")));
+                Assert.True(customHeader.Value.Any(s=>s.Contains("value2")));
                 Assert.True(req.Content.Headers.ContentLanguage.Contains("en-gb"));
                 Assert.True(req.Content.Headers.ContentLanguage.Contains("en-us"));
 
@@ -177,10 +176,10 @@ namespace WebApi.Explorations.ServiceBusIntegration.Tests
             var rt = client.SendAsync(request);
             TestController.OnPost(req =>
             {
-                var cont = req.Content.ReadAsAsync<JsonValue>().Result;
+                var cont = req.Content.ReadAsAsync<JObject>().Result;
                 foreach (var p in values)
                 {
-                    Assert.AreEqual(p.Value, cont[p.Key].ReadAs<string>());
+                    Assert.AreEqual(p.Value, cont[p.Key].Value<string>());
                 }
                 return new HttpResponseMessage();
             }
