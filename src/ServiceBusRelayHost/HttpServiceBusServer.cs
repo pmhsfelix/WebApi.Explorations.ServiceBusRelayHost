@@ -1,3 +1,8 @@
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Channels;
+using System.ServiceModel.Description;
+using System.ServiceModel.Dispatcher;
 using System.ServiceModel.Web;
 using System.Threading.Tasks;
 using System.Web.Http;

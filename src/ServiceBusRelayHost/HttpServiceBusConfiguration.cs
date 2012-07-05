@@ -1,8 +1,18 @@
+using System.ServiceModel.Channels;
 using System.Web.Http;
 using Microsoft.ServiceBus;
 
 namespace WebApi.Explorations.ServiceBusIntegration
 {
+
+    internal class RawContentTypeMapper : WebContentTypeMapper
+    {
+        public override WebContentFormat GetMessageFormatForContentType(string contentType)
+        {
+            return WebContentFormat.Raw;
+        }
+    }
+
     public class HttpServiceBusConfiguration : HttpConfiguration
     {
         private readonly string _address;
@@ -18,9 +28,13 @@ namespace WebApi.Explorations.ServiceBusIntegration
 
         public bool BufferRequestContent { get; set; }
         
-        public WebHttpRelayBinding GetBinding()
+        public Binding GetBinding()
         {
-            return new WebHttpRelayBinding(EndToEndWebHttpSecurityMode.None, RelayClientAuthenticationType.None);
+            var b = new WebHttpRelayBinding(EndToEndWebHttpSecurityMode.None, RelayClientAuthenticationType.None);
+            var elems = b.CreateBindingElements();
+            var ee = elems.Find<WebMessageEncodingBindingElement>();
+            ee.ContentTypeMapper = new RawContentTypeMapper();
+            return new CustomBinding(elems);
         }
 
         public TransportClientEndpointBehavior GetTransportBehavior()

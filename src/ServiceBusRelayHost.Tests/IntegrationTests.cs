@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -188,6 +189,51 @@ namespace ServiceBusRelayHost.Tests
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         }
 
+
+       public class SomeModel
+        {
+            public int AnInteger { get; set; }
+            public string AString { get; set; }
+        }
+
+        [Test]
+        public void When_POST_typed_XML_content_can_be_read()
+        {
+            var reqModel = new SomeModel
+                               {
+                                   AnInteger = 2,
+                                   AString = "hello"
+                               };
+            var client = new HttpClient();
+            client.PostAsXmlAsync(BaseAddress + "Test", reqModel );
+            TestController.OnPost(req =>
+            {
+                var recModel = req.Content.ReadAsAsync<SomeModel>().Result;
+                Assert.AreEqual(reqModel.AnInteger, recModel.AnInteger);
+                Assert.AreEqual(reqModel.AString, recModel.AString); 
+                return new HttpResponseMessage();
+            });
+        }
+
+        [Test]
+        public void When_POST_typed_JSON_content_can_be_read()
+        {
+            var reqModel = new SomeModel
+            {
+                AnInteger = 2,
+                AString = "hello"
+            };
+            var client = new HttpClient();
+            client.PostAsJsonAsync(BaseAddress + "Test", reqModel);
+            TestController.OnPost(req =>
+            {
+                var recModel = req.Content.ReadAsAsync<SomeModel>().Result;
+                Assert.AreEqual(reqModel.AnInteger, recModel.AnInteger);
+                Assert.AreEqual(reqModel.AString, recModel.AString);
+                return new HttpResponseMessage();
+            });
+        }
+
         [Test]
         public void When_GET_response_headers_are_preserved()
         {
@@ -247,7 +293,7 @@ namespace ServiceBusRelayHost.Tests
         }
 
         [Test]
-        public void can_handle_responses_with_no_content()
+        public void Can_handle_responses_with_no_content()
         {
             var client = new HttpClient();
             var t = client.GetAsync(BaseAddress + "test");
@@ -265,7 +311,7 @@ namespace ServiceBusRelayHost.Tests
             {
                 IssuerName = "owner",
                 IssuerSecret = Secret,
-                BufferRequestContent = true,
+                BufferRequestContent = false,
             };
             config.Routes.MapHttpRoute("default", "{controller}/{id}", new { id = RouteParameter.Optional });
             _server = new HttpServiceBusServer(config);
