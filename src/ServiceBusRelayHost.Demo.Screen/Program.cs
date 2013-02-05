@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -7,11 +6,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Web.Http;
-using System.Windows.Forms;
 using WebApi.Explorations.ServiceBusIntegration;
-using WebApi.Explorations.ServiceBusRelayHost.Tests;
 
-namespace WebApi.Explorations.ServiceBusRelayHost.Demo
+namespace ServiceBusRelayHost.Demo.Screen
 {
     public class ScreenCapturer
     {
@@ -22,14 +19,14 @@ namespace WebApi.Explorations.ServiceBusRelayHost.Demo
 
         private static void GenerateImageBufferInto(Stream os)
         {
-            using (var bitmap = new Bitmap(Screen.PrimaryScreen.Bounds.Width, Screen.PrimaryScreen.Bounds.Height, PixelFormat.Format32bppArgb))
+            using (var bitmap = new Bitmap(System.Windows.Forms.Screen.PrimaryScreen.Bounds.Width, System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height, PixelFormat.Format32bppArgb))
             {
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
                     graphics.CopyFromScreen(
-                        Screen.PrimaryScreen.Bounds.X, Screen.PrimaryScreen.Bounds.Y,
+                        System.Windows.Forms.Screen.PrimaryScreen.Bounds.X, System.Windows.Forms.Screen.PrimaryScreen.Bounds.Y,
                         0, 0,
-                        Screen.PrimaryScreen.Bounds.Size, CopyPixelOperation.SourceCopy);
+                        System.Windows.Forms.Screen.PrimaryScreen.Bounds.Size, CopyPixelOperation.SourceCopy);
 
                     ImageCodecInfo jgpEncoder = GetEncoder(ImageFormat.Jpeg);
                     var encoderParams = new EncoderParameters(1);
@@ -72,10 +69,10 @@ namespace WebApi.Explorations.ServiceBusRelayHost.Demo
     {
         static void Main(string[] args)
         {
-            var config = new HttpServiceBusConfiguration(ServiceBusCredentials.ServiceBusAddress)
+            var config = new HttpServiceBusConfiguration(SecretCredentials.ServiceBusCredentials.ServiceBusAddress)
             {
                 IssuerName = "owner",
-                IssuerSecret = ServiceBusCredentials.Secret
+                IssuerSecret = SecretCredentials.ServiceBusCredentials.Secret
             };
             config.Routes.MapHttpRoute("default", "{controller}/{id}", new { id = RouteParameter.Optional });
             var server = new HttpServiceBusServer(config);

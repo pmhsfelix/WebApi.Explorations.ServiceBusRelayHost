@@ -11,7 +11,6 @@ using System.Web.Http;
 using NUnit.Framework;
 using Newtonsoft.Json.Linq;
 using WebApi.Explorations.ServiceBusIntegration;
-using WebApi.Explorations.ServiceBusRelayHost.Tests;
 
 namespace ServiceBusRelayHost.Tests
 {
