@@ -69,10 +69,10 @@ namespace ServiceBusRelayHost.Demo.Screen
     {
         static void Main(string[] args)
         {
-            var config = new HttpServiceBusConfiguration(SecretCredentials.ServiceBusCredentials.ServiceBusAddress)
+            var config = new HttpServiceBusConfiguration(SecretCredentials.ServiceBusAddress)
             {
                 IssuerName = "owner",
-                IssuerSecret = SecretCredentials.ServiceBusCredentials.Secret
+                IssuerSecret = SecretCredentials.Secret
             };
             config.Routes.MapHttpRoute("default", "{controller}/{id}", new { id = RouteParameter.Optional });
             var server = new HttpServiceBusServer(config);

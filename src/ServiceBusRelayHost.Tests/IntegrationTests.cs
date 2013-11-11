@@ -73,8 +73,8 @@ namespace ServiceBusRelayHost.Tests
     [TestFixture]
     public class IntegrationTests
     {
-        private readonly string BaseAddress = ServiceBusCredentials.ServiceBusAddress;
-        private readonly string Secret = ServiceBusCredentials.Secret;
+        private readonly string BaseAddress = SecretCredentials.ServiceBusAddress;
+        private readonly string Secret = SecretCredentials.Secret;
 
         [Test]
         public void When_GET_response_content_is_received()
