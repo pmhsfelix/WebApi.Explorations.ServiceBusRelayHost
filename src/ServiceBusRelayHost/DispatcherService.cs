@@ -19,7 +19,6 @@ namespace WebApi.Explorations.ServiceBusIntegration
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single, ConcurrencyMode = ConcurrencyMode.Multiple)]
     internal class DispatcherService
     {
-        //private readonly HttpServer _server;
         private readonly HttpMessageInvoker _serverInvoker;
         private readonly HttpServiceBusConfiguration _config;
 
@@ -42,27 +41,22 @@ namespace WebApi.Explorations.ServiceBusIntegration
                                                                      "Expires",
                                                                      "Last-Modified"
                                                                  };
-
         
-
         [WebGet(UriTemplate = "*")]
         [OperationContract(AsyncPattern = true)]
-        public IAsyncResult BeginGet(AsyncCallback callback, object state)
+        public async Task<Message> GetAsync()
         {
             var context = WebOperationContext.Current;
-            return DispatchToHttpServer(context.IncomingRequest, null, context.OutgoingResponse, _config.BufferRequestContent, callback, state);
-        }
-
-        public Message EndGet(IAsyncResult ar)
-        {
-            var t = ar as Task<Stream>;
-            var stream = t.Result;
+            var request = MakeHttpRequestMessageFrom(context.IncomingRequest, null, _config.BufferRequestContent);
+            var response = await _serverInvoker.SendAsync(request, CancellationToken.None);
+            CopyHttpResponseMessageToOutgoingResponse(response, context.OutgoingResponse);
+            var stream = response.Content != null ? await response.Content.ReadAsStreamAsync() : null;
             return StreamMessageHelper.CreateMessage(MessageVersion.None, "GETRESPONSE", stream ?? new MemoryStream());
         }
-
+        
         [WebInvoke(UriTemplate = "*", Method = "*")]
         [OperationContract(AsyncPattern = true)]
-        public IAsyncResult BeginInvoke(Message msg, AsyncCallback callback, object state)
+        public async Task<Message> InvokeAsync(Message msg)
         {
             var context = WebOperationContext.Current;
             object value;
@@ -74,71 +68,29 @@ namespace WebApi.Explorations.ServiceBusIntegration
                 {
                     s = StreamMessageHelper.GetStream(msg);
                 }
-            }else{
-                    var ms = new MemoryStream();
-                    using(var xw = XmlDictionaryWriter.CreateTextWriter(ms, Encoding.UTF8, false))
-                    {
-                        msg.WriteBodyContents(xw);
-                    }
-                    ms.Seek(0, SeekOrigin.Begin);
-                    s = ms;
+            }
+            else
+            {
+                var ms = new MemoryStream();
+                using (var xw = XmlDictionaryWriter.CreateTextWriter(ms, Encoding.UTF8, false))
+                {
+                    msg.WriteBodyContents(xw);
                 }
-            return DispatchToHttpServer(context.IncomingRequest, s, context.OutgoingResponse, _config.BufferRequestContent, callback, state);
-        }
-
-        public Message EndInvoke(IAsyncResult ar)
-        {
-            var t = ar as Task<Stream>;
-            var stream = t.Result;
+                ms.Seek(0, SeekOrigin.Begin);
+                s = ms;
+            }
+            var request = MakeHttpRequestMessageFrom(context.IncomingRequest, s, _config.BufferRequestContent);
+            var response = await _serverInvoker.SendAsync(request, CancellationToken.None);
+            CopyHttpResponseMessageToOutgoingResponse(response, context.OutgoingResponse);
+            var stream = response.Content != null ? await response.Content.ReadAsStreamAsync() : null;
             return StreamMessageHelper.CreateMessage(MessageVersion.None, "GETRESPONSE", stream ?? new MemoryStream());
         }
 
-        private IAsyncResult DispatchToHttpServer(
-            IncomingWebRequestContext incomingRequest, 
-            Stream body,
-            OutgoingWebResponseContext outgoingResponse, 
-            bool bufferBody,
-            AsyncCallback callback, 
-            object state)
-        {
-            var request = MakeHttpRequestMessageFrom(incomingRequest, body, bufferBody);
-            var tcs = new TaskCompletionSource<Stream>(state);
-            _serverInvoker.SendAsync(request, new CancellationToken())
-                .ContinueWith(t =>
-                {
-                    var response = t.Result;
-                    CopyHttpResponseMessageToOutgoingResponse(response, outgoingResponse);
-                    Action<Task<Stream>> complete = (t2) =>
-                    {
-                        if (t2.IsFaulted)
-                            tcs.TrySetException(
-                                t2.Exception.InnerExceptions);
-                        else if (t2.IsCanceled) tcs.TrySetCanceled();
-                        else tcs.TrySetResult(t2.Result);
-
-                        if (callback != null) callback(tcs.Task);
-                    };
-
-                    if (response.Content == null)
-                    {
-                        tcs.TrySetResult(null);
-                        if (callback != null) callback(tcs.Task);
-                    }
-                    else
-                    {
-                        response.Content.ReadAsStreamAsync()
-                            .ContinueWith(complete);
-                    }
-                });
-            return tcs.Task;
-        }
-        
-        private static HttpRequestMessage MakeHttpRequestMessageFrom(IncomingWebRequestContext oreq, Stream body, bool bufferBody)
+       private static HttpRequestMessage MakeHttpRequestMessageFrom(IncomingWebRequestContext oreq, Stream body, bool bufferBody)
         {
             var nreq = new HttpRequestMessage(new HttpMethod(oreq.Method), oreq.UriTemplateMatch.RequestUri);
             foreach (var name in oreq.Headers.AllKeys.Where(name => !_httpContentHeaders.Contains(name)))
             {
-                //nreq.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name).Split(',').Select(s => s.Trim()));
                 nreq.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name));
             }
             if (body != null)
@@ -155,7 +107,6 @@ namespace WebApi.Explorations.ServiceBusIntegration
 
                 foreach (var name in oreq.Headers.AllKeys.Where(name => _httpContentHeaders.Contains(name)))
                 {
-                    //nreq.Content.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name).Split(',').Select(s => s.Trim()));
                     nreq.Content.Headers.TryAddWithoutValidation(name, oreq.Headers.Get(name));
                 }
             }
